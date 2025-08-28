@@ -1,0 +1,26 @@
+week_start,product,region,units_thousands,revenue_millions_usd,target_revenue_millions_usd,variance_pct_vs_target,yoy_growth_pct,avg_selling_price_usd
+2025-08-18,iPhone,Americas,1850,16500,15800,4.43,6.2,8918.92
+2025-08-18,iPhone,EMEA,970,8400,8200,2.44,3.8,8659.79
+2025-08-18,iPhone,Greater China,920,8300,9200,-9.78,-4.5,9021.74
+2025-08-18,iPhone,Japan,310,2650,2700,-1.85,-1.9,8548.39
+2025-08-18,iPhone,Rest of Asia Pacific,520,4400,4200,4.76,5.9,8461.54
+2025-08-18,iPad,Americas,420,2400,2350,2.13,2.1,5714.29
+2025-08-18,iPad,EMEA,280,1600,1550,3.23,2.9,5714.29
+2025-08-18,iPad,Greater China,240,1400,1450,-3.45,-3.4,5833.33
+2025-08-18,iPad,Japan,95,560,550,1.82,1.8,5894.74
+2025-08-18,iPad,Rest of Asia Pacific,130,740,720,2.78,2.6,5692.31
+2025-08-18,Mac,Americas,360,5200,5000,4.0,4.3,14444.44
+2025-08-18,Mac,EMEA,210,3000,2950,1.69,1.7,14285.71
+2025-08-18,Mac,Greater China,160,2300,2400,-4.17,-4.1,14375.0
+2025-08-18,Mac,Japan,70,980,1000,-2.0,-2.0,14000.0
+2025-08-18,Mac,Rest of Asia Pacific,110,1550,1500,3.33,3.3,14090.91
+2025-08-18,Wearables/Home/Accessories,Americas,900,4600,4300,6.98,7.0,5111.11
+2025-08-18,Wearables/Home/Accessories,EMEA,520,2650,2500,6.0,6.0,5096.15
+2025-08-18,Wearables/Home/Accessories,Greater China,480,2400,2450,-2.04,-2.0,5000.0
+2025-08-18,Wearables/Home/Accessories,Japan,180,880,900,-2.22,-1.5,4888.89
+2025-08-18,Wearables/Home/Accessories,Rest of Asia Pacific,260,1300,1250,4.0,4.0,5000.0
+2025-08-18,Services,Americas,0,4500,4300,4.65,4.9,
+2025-08-18,Services,EMEA,0,2600,2500,4.0,4.0,
+2025-08-18,Services,Greater China,0,2100,2050,2.44,2.4,
+2025-08-18,Services,Japan,0,780,780,0.0,0.0,
+2025-08-18,Services,Rest of Asia Pacific,0,1200,1180,1.69,1.7,

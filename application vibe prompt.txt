@@ -1,0 +1,16 @@
+create generative AI application to do executive deep research. we want the app to have following three major features
+
+Get the company name, executive role and sales data from the users first
+
+1. Takes the uploaded csv data  and process it in python to create summary by product and summary by region. Use tool calling to load this data into LLM prompt
+by calling the respective functions. 
+
+2. create internet search tool call with appropriate prompts to get latest industry trend news related to the company and its products. 
+
+3. Using the above information , create executive summary and action recommendations for given "executive role"
+
+For example , apple   with role ceo along with sales sheet can generate report for himself. 
+
+
+Keep the code modular and simple. create  app using langgraph frame work and tavily search to do the following. 
+I will provide openai api key and tavily api key if needed. 

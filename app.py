@@ -5,6 +5,7 @@ from io import StringIO
 import tempfile
 from dotenv import load_dotenv
 import logging
+from rag_tool import RAGTool
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -148,6 +149,16 @@ def main():
                     else:
                         st.warning("Tavily API key not provided. Skipping industry research.")
                     
+                    # RAG Tool
+                    try:
+                        st.info("🔍 Researching risk items from internal documents...")
+                        rag_tool = RAGTool(query="What are the risk items?")
+                        rag_tool_docs = rag_tool.retrieve_chunks()
+                    except Exception as e:
+                        st.warning(f"RAG Tool failed: {str(e)}")
+                        rag_tool_docs = []
+                    
+                    
                     # Generate executive report
                     st.info("📝 Generating executive summary...")
                     if not industry_research:
@@ -164,7 +175,8 @@ def main():
                         company_name,
                         executive_role,
                         sales_data,
-                        industry_research
+                        industry_research,
+                        rag_tool_docs
                     )
                     
                     

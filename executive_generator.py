@@ -1,6 +1,6 @@
 import os
 from langchain_openai import ChatOpenAI
-from langchain.schema import HumanMessage, SystemMessage
+from langchain.schema import HumanMessage, SystemMessage, Document
 from pydantic import BaseModel
 from typing import List, Dict, Any
 from data_processor import SalesData, create_data_summary_prompt
@@ -52,7 +52,8 @@ class ExecutiveReportGenerator:
         company_name: str, 
         executive_role: str,
         sales_data: SalesData, 
-        industry_research: IndustryResearch
+        industry_research: IndustryResearch,
+        rag_docs: List[Document]
     ) -> tuple[ExecutiveSummary, float | None]:
         """
         Generate comprehensive executive report with summary and recommendations
@@ -63,10 +64,16 @@ class ExecutiveReportGenerator:
         
         # Create industry research summary
         research_summary = create_industry_research_prompt(industry_research, company_name)
+
+        # RAG content
+        rag_content = "\n".join([doc.page_content for doc in rag_docs])
+        print(f"-"*100)
+        print(f"RAG content: {rag_content}")
+        print(f"-"*100)
         
         # Generate executive summary and recommendations
         system_prompt = self._create_system_prompt(executive_role)
-        human_prompt = self._create_human_prompt(company_name, data_summary, research_summary)
+        human_prompt = self._create_human_prompt(company_name, data_summary, research_summary, rag_content)
         
         try:
             # Use structured output with Pydantic model
@@ -97,7 +104,7 @@ class ExecutiveReportGenerator:
                     if hasattr(industry_research, 'competitive_landscape') and industry_research.competitive_landscape:
                         context_parts.append(str(industry_research.competitive_landscape))
                 
-                context = "\n".join(context_parts)
+                context = "\n".join(context_parts) + "\n" + rag_content
                 
                 hallucination_score = hallucination_metric.score(
                     output=parsed_response,
@@ -155,7 +162,7 @@ For strategic recommendations:
 
 For key findings and next steps, provide 3-5 clear, specific items each."""
     
-    def _create_human_prompt(self, company_name: str, data_summary: str, research_summary: str) -> str:
+    def _create_human_prompt(self, company_name: str, data_summary: str, research_summary: str, rag_content: str) -> str:
         """Create the human prompt with all context"""
         
         return f"""Please analyze the following information for {company_name} and create a comprehensive executive briefing:
@@ -164,7 +171,9 @@ For key findings and next steps, provide 3-5 clear, specific items each."""
 
 {research_summary}
 
-Based on this sales data and industry research, provide strategic insights and actionable recommendations tailored for the executive role specified in the system prompt."""
+{rag_content}
+
+Based on this sales data, industry research, and risk items from internal documents, provide strategic insights and actionable recommendations tailored for the executive role specified in the system prompt."""
     
 
     

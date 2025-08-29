@@ -28,13 +28,13 @@ class TavilySearchTool:
         """
         try:
             # Search for company-specific trends
-            company_query = f"{company_name} latest news trends 2024 2025 business strategy"
+            company_query = f"{company_name} latest news trends 2025 business strategy"
             company_results = self._perform_search(company_query, max_results=3)
             
             # Search for product trends
             product_queries = []
             for product in products[:3]:  # Limit to top 3 products
-                product_queries.append(f"{product} market trends 2024 2025 industry analysis")
+                product_queries.append(f"{product} market trends 2025 industry analysis")
             
             product_results = []
             for query in product_queries:
@@ -42,11 +42,11 @@ class TavilySearchTool:
                 product_results.extend(results)
             
             # Search for general industry news
-            industry_query = f"{company_name} industry market analysis competitive landscape 2024"
+            industry_query = f"{company_name} industry market analysis competitive landscape 2025"
             industry_results = self._perform_search(industry_query, max_results=3)
             
             # Search for competitive landscape
-            competitive_query = f"{company_name} competitors market share analysis 2024"
+            competitive_query = f"{company_name} competitors market share analysis 2025"
             competitive_results = self._perform_search(competitive_query, max_results=3)
             
             return IndustryResearch(

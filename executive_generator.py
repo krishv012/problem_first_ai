@@ -69,13 +69,16 @@ class ExecutiveReportGenerator:
         human_prompt = self._create_human_prompt(company_name, data_summary, research_summary)
         
         try:
-            response = self.llm.invoke([
+            # Use structured output with Pydantic model
+            structured_llm = self.llm.with_structured_output(ExecutiveSummary)
+            
+            response = structured_llm.invoke([
                 SystemMessage(content=system_prompt),
                 HumanMessage(content=human_prompt)
             ])
             
-            # Parse the response into structured format
-            parsed_response = self._parse_llm_response(response.content)
+            # Response is already a structured ExecutiveSummary object
+            parsed_response = response
             
             # Evaluate the response if Opik is available
             hallucination_score = None
@@ -142,40 +145,15 @@ Tailor your analysis and recommendations specifically for the {executive_role} p
 Be data-driven, actionable, and strategic in your recommendations.
 Focus on insights that would be most relevant and valuable for this executive role.
 
-Format your response as follows:
+For strategic recommendations:
+- Provide 2-3 detailed, actionable recommendations
+- Each recommendation should have a clear description of what to do
+- Category should be one of: Strategic, Operational, Financial, Marketing
+- Priority should be one of: High, Medium, Low
+- Timeline should be one of: Immediate, Short-term, Long-term
+- Expected Impact should describe the anticipated business impact
 
-EXECUTIVE SUMMARY:
-[2-3 paragraph summary]
-
-KEY FINDINGS:
-• [Finding 1]
-• [Finding 2]
-• [Finding 3]
-
-STRATEGIC RECOMMENDATIONS:
-[Recommendation 1]
-[Provide a detailed recommendation description here - this is the main content]
-Category: [Strategic/Operational/Financial/Marketing]
-Priority: [High/Medium/Low]  
-Timeline: [Immediate/Short-term/Long-term]
-Expected Impact: [Description of expected impact]
-
-[Recommendation 2]
-[Provide a detailed recommendation description here - this is the main content]
-Category: [Strategic/Operational/Financial/Marketing]
-Priority: [High/Medium/Low]  
-Timeline: [Immediate/Short-term/Long-term]
-Expected Impact: [Description of expected impact]
-
-IMPORTANT: Each recommendation must be formatted exactly as shown above. Do NOT combine multiple recommendations into a single block. Each recommendation must have its own bracketed header [Recommendation X] followed by the detailed description, then the Category, Priority, Timeline, and Expected Impact fields.
-
-RISK ASSESSMENT:
-[Risk analysis paragraph]
-
-NEXT STEPS:
-• [Action 1]
-• [Action 2]
-• [Action 3]"""
+For key findings and next steps, provide 3-5 clear, specific items each."""
     
     def _create_human_prompt(self, company_name: str, data_summary: str, research_summary: str) -> str:
         """Create the human prompt with all context"""
@@ -188,101 +166,5 @@ NEXT STEPS:
 
 Based on this sales data and industry research, provide strategic insights and actionable recommendations tailored for the executive role specified in the system prompt."""
     
-    def _is_recommendation_complete(self, recommendation_dict: dict) -> bool:
-        """Check if a recommendation has all required fields"""
-        required_fields = ['recommendation', 'priority', 'timeline', 'expected_impact']
-        return all(field in recommendation_dict and recommendation_dict[field].strip() for field in required_fields)
+
     
-    def _parse_llm_response(self, response_content: str) -> ExecutiveSummary:
-        """Parse LLM response into structured ExecutiveSummary object"""
-        
-        # Simple parsing - in production, you might want more robust parsing
-        lines = response_content.split('\n')
-        
-        executive_summary = ""
-        key_findings = []
-        strategic_recommendations = []
-        risk_assessment = ""
-        next_steps = []
-        
-        current_section = None
-        current_recommendation = {}
-        
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-                
-            if line.startswith("EXECUTIVE SUMMARY:"):
-                current_section = "summary"
-                continue
-            elif line.startswith("KEY FINDINGS:"):
-                current_section = "findings"
-                continue
-            elif line.startswith("STRATEGIC RECOMMENDATIONS:"):
-                current_section = "recommendations"
-                continue
-            elif line.startswith("RISK ASSESSMENT:"):
-                current_section = "risk"
-                continue
-            elif line.startswith("NEXT STEPS:"):
-                current_section = "steps"
-                continue
-            
-            if current_section == "summary":
-                executive_summary += line + " "
-            elif current_section == "findings" and line.startswith("•"):
-                key_findings.append(line[1:].strip())
-            elif current_section == "recommendations":
-                if line.startswith("Category:"):
-                    # Save previous recommendation if it exists and has all required fields
-                    if current_recommendation and self._is_recommendation_complete(current_recommendation):
-                        strategic_recommendations.append(ExecutiveRecommendation(**current_recommendation))
-                        current_recommendation = {}
-                    current_recommendation['category'] = line.split(":", 1)[1].strip()
-                elif line.startswith("Priority:"):
-                    current_recommendation['priority'] = line.split(":", 1)[1].strip()
-                elif line.startswith("Timeline:"):
-                    current_recommendation['timeline'] = line.split(":", 1)[1].strip()
-                elif line.startswith("Expected Impact:"):
-                    current_recommendation['expected_impact'] = line.split(":", 1)[1].strip()
-                elif line and not line.startswith(("Category:", "Priority:", "Timeline:", "Expected Impact:")):
-                    # Skip bracketed recommendation headers like [Recommendation 1], [Recommendation 2], etc.
-                    if line.startswith("[Recommendation") and line.endswith("]"):
-                        # Start a new recommendation when we see a bracketed header
-                        if current_recommendation and self._is_recommendation_complete(current_recommendation):
-                            strategic_recommendations.append(ExecutiveRecommendation(**current_recommendation))
-                        current_recommendation = {}
-                        continue
-                    # This is recommendation text - append to existing or start new
-                    if 'recommendation' in current_recommendation:
-                        current_recommendation['recommendation'] += " " + line
-                    else:
-                        current_recommendation['recommendation'] = line
-            elif current_section == "risk":
-                risk_assessment += line + " "
-            elif current_section == "steps" and line.startswith("•"):
-                next_steps.append(line[1:].strip())
-        
-        # Don't forget the last recommendation
-        if current_recommendation and self._is_recommendation_complete(current_recommendation):
-            strategic_recommendations.append(ExecutiveRecommendation(**current_recommendation))
-        
-        # Debug: Print information about parsed recommendations
-        print(f"DEBUG: Parsed {len(strategic_recommendations)} recommendations")
-        for i, rec in enumerate(strategic_recommendations, 1):
-            print(f"DEBUG: Recommendation {i}:")
-            print(f"  - Category: {rec.category}")
-            print(f"  - Priority: {rec.priority}")
-            print(f"  - Timeline: {rec.timeline}")
-            print(f"  - Expected Impact: {rec.expected_impact}")
-            print(f"  - Recommendation text: {rec.recommendation[:100]}...")
-            print()
-        
-        return ExecutiveSummary(
-            executive_summary=executive_summary.strip(),
-            key_findings=key_findings,
-            strategic_recommendations=strategic_recommendations,
-            risk_assessment=risk_assessment.strip(),
-            next_steps=next_steps
-        )

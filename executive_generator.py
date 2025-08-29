@@ -5,9 +5,11 @@ from pydantic import BaseModel
 from typing import List, Dict, Any
 from data_processor import SalesData, create_data_summary_prompt
 from search_tool import IndustryResearch, create_industry_research_prompt
+from opik.evaluation.metrics import Hallucination
+
+
 
 class ExecutiveRecommendation(BaseModel):
-    category: str
     recommendation: str
     priority: str  # High, Medium, Low
     timeline: str
@@ -21,16 +23,28 @@ class ExecutiveSummary(BaseModel):
     next_steps: List[str]
 
 class ExecutiveReportGenerator:
-    def __init__(self, openai_api_key: str = None):
+    def __init__(self, openai_api_key: str = None, opik_api_key: str = None):
         self.openai_api_key = openai_api_key or os.getenv("OPENAI_API_KEY")
         if not self.openai_api_key:
             raise ValueError("OpenAI API key is required. Set OPENAI_API_KEY environment variable.")
+        
+        self.opik_api_key = opik_api_key or os.getenv("OPIK_API_KEY")
         
         self.llm = ChatOpenAI(
             api_key=self.openai_api_key,
             model="gpt-4",
             temperature=0.3
         )
+        
+        # Initialize Opik if API key is available
+        self.opik = None
+        if self.opik_api_key:
+            try:
+                # Opik initialization removed since we're only using evaluation metrics
+                self.opik = True  # Just mark as available
+            except Exception as e:
+                print(f"Warning: Failed to initialize Opik: {e}")
+                self.opik = None
     
     def generate_executive_report(
         self, 
@@ -38,7 +52,7 @@ class ExecutiveReportGenerator:
         executive_role: str,
         sales_data: SalesData, 
         industry_research: IndustryResearch
-    ) -> ExecutiveSummary:
+    ) -> tuple[ExecutiveSummary, float | None]:
         """
         Generate comprehensive executive report with summary and recommendations
         """
@@ -60,10 +74,44 @@ class ExecutiveReportGenerator:
             ])
             
             # Parse the response into structured format
-            return self._parse_llm_response(response.content)
+            parsed_response = self._parse_llm_response(response.content)
+            
+            # Evaluate the response if Opik is available
+            hallucination_score = None
+            try:
+                hallucination_metric = Hallucination()
+                
+                # Create context string safely
+                context_parts = [str(sales_data)]
+                if industry_research:
+                    if hasattr(industry_research, 'company_trends') and industry_research.company_trends:
+                        context_parts.append(str(industry_research.company_trends))
+                    if hasattr(industry_research, 'product_trends') and industry_research.product_trends:
+                        context_parts.append(str(industry_research.product_trends))
+                    if hasattr(industry_research, 'industry_news') and industry_research.industry_news:
+                        context_parts.append(str(industry_research.industry_news))
+                    if hasattr(industry_research, 'competitive_landscape') and industry_research.competitive_landscape:
+                        context_parts.append(str(industry_research.competitive_landscape))
+                
+                context = "\n".join(context_parts)
+                
+                hallucination_score = hallucination_metric.score(
+                    output=parsed_response,
+                    input=system_prompt + "\n" + human_prompt,
+                    context=context
+                )
+                print(f"Hallucination score: {hallucination_score}")
+            
+            except Exception as e:
+                print(f"Error evaluating hallucination: {e}")
+            
+            # Return both the parsed response and hallucination score separately
+            return parsed_response, hallucination_score
             
         except Exception as e:
             raise Exception(f"Error generating executive report: {str(e)}")
+
+        
     
     def _create_system_prompt(self, executive_role: str) -> str:
         """Create system prompt based on executive role"""
@@ -111,7 +159,10 @@ Timeline: [Immediate/Short-term/Long-term]
 Expected Impact: [Description of expected impact]
 
 [Recommendation 2]
-[Same format...]
+Category: [Strategic/Operational/Financial/Marketing]
+Priority: [High/Medium/Low]  
+Timeline: [Immediate/Short-term/Long-term]
+Expected Impact: [Description of expected impact]
 
 RISK ASSESSMENT:
 [Risk analysis paragraph]
@@ -131,6 +182,11 @@ NEXT STEPS:
 {research_summary}
 
 Based on this sales data and industry research, provide strategic insights and actionable recommendations tailored for the executive role specified in the system prompt."""
+    
+    def _is_recommendation_complete(self, recommendation_dict: dict) -> bool:
+        """Check if a recommendation has all required fields"""
+        required_fields = ['recommendation', 'priority', 'timeline', 'expected_impact']
+        return all(field in recommendation_dict and recommendation_dict[field].strip() for field in required_fields)
     
     def _parse_llm_response(self, response_content: str) -> ExecutiveSummary:
         """Parse LLM response into structured ExecutiveSummary object"""
@@ -173,14 +229,11 @@ Based on this sales data and industry research, provide strategic insights and a
             elif current_section == "findings" and line.startswith("•"):
                 key_findings.append(line[1:].strip())
             elif current_section == "recommendations":
-                if line and not line.startswith(("Category:", "Priority:", "Timeline:", "Expected Impact:")):
-                    if current_recommendation:
-                        # Save previous recommendation
-                        if all(key in current_recommendation for key in ['recommendation', 'category', 'priority', 'timeline', 'expected_impact']):
-                            strategic_recommendations.append(ExecutiveRecommendation(**current_recommendation))
+                if line.startswith("Category:"):
+                    # Save previous recommendation if it exists and has all required fields
+                    if current_recommendation and self._is_recommendation_complete(current_recommendation):
+                        strategic_recommendations.append(ExecutiveRecommendation(**current_recommendation))
                         current_recommendation = {}
-                    current_recommendation['recommendation'] = line
-                elif line.startswith("Category:"):
                     current_recommendation['category'] = line.split(":", 1)[1].strip()
                 elif line.startswith("Priority:"):
                     current_recommendation['priority'] = line.split(":", 1)[1].strip()
@@ -188,13 +241,19 @@ Based on this sales data and industry research, provide strategic insights and a
                     current_recommendation['timeline'] = line.split(":", 1)[1].strip()
                 elif line.startswith("Expected Impact:"):
                     current_recommendation['expected_impact'] = line.split(":", 1)[1].strip()
+                elif line and not line.startswith(("Category:", "Priority:", "Timeline:", "Expected Impact:")):
+                    # This is recommendation text - append to existing or start new
+                    if 'recommendation' in current_recommendation:
+                        current_recommendation['recommendation'] += " " + line
+                    else:
+                        current_recommendation['recommendation'] = line
             elif current_section == "risk":
                 risk_assessment += line + " "
             elif current_section == "steps" and line.startswith("•"):
                 next_steps.append(line[1:].strip())
         
         # Don't forget the last recommendation
-        if current_recommendation and all(key in current_recommendation for key in ['recommendation', 'category', 'priority', 'timeline', 'expected_impact']):
+        if current_recommendation and self._is_recommendation_complete(current_recommendation):
             strategic_recommendations.append(ExecutiveRecommendation(**current_recommendation))
         
         return ExecutiveSummary(

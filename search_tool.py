@@ -89,6 +89,13 @@ class TavilySearchTool:
 def create_industry_research_prompt(research: IndustryResearch, company_name: str) -> str:
     """Create a formatted prompt with industry research findings"""
     
+    if research is None:
+        return f"""
+Industry Research Summary for {company_name}:
+
+No industry research data available. Analysis will be based on sales data only.
+"""
+    
     prompt = f"""
 Industry Research Summary for {company_name}:
 

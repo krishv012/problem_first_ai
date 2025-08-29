@@ -89,7 +89,7 @@ try:
     report_generator = ExecutiveReportGenerator()
     
     print("📝 Generating CEO executive report...")
-    executive_report = report_generator.generate_executive_report(
+    executive_report, hallucination_score = report_generator.generate_executive_report(
         "Apple Inc.",
         "CEO",
         sales_data,
@@ -110,7 +110,7 @@ try:
     
     print(f"\n🎯 Strategic Recommendations:")
     for i, rec in enumerate(executive_report.strategic_recommendations[:2], 1):
-        print(f"  {i}. [{rec.priority}] {rec.category}: {rec.recommendation[:100]}...")
+        print(f"  {i}. [{rec.priority}]: {rec.recommendation[:100]}...")
     
 except Exception as e:
     print(f"❌ Executive report generation failed: {e}")
@@ -126,7 +126,7 @@ try:
     
     for role in roles_to_test:
         print(f"\n📝 Testing {role} report generation...")
-        role_report = report_generator.generate_executive_report(
+        role_report, role_hallucination_score = report_generator.generate_executive_report(
             "Apple Inc.",
             role,
             sales_data,

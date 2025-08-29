@@ -4,10 +4,16 @@ import os
 from io import StringIO
 import tempfile
 from dotenv import load_dotenv
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 from data_processor import DataProcessor, create_data_summary_prompt
 from search_tool import TavilySearchTool, create_industry_research_prompt
 from executive_generator import ExecutiveReportGenerator
+
 
 # Load environment variables
 load_dotenv()
@@ -83,34 +89,50 @@ def main():
         st.header("Executive Report")
         
         if generate_button:
+            logger.info("Generate button clicked")
+            logger.debug(f"Company name: {company_name}")
+            logger.debug(f"Executive role: {executive_role}")
+            logger.debug(f"OpenAI key provided: {bool(openai_key)}")
+            logger.debug(f"Tavily key provided: {bool(tavily_key)}")
+            logger.debug(f"File uploaded: {uploaded_file is not None}")
+            
             # Validate inputs
             if not company_name:
                 st.error("Please enter a company name")
+                logger.warning("Company name validation failed")
                 return
             
             if not openai_key:
                 st.error("Please provide OpenAI API key")
+                logger.warning("OpenAI API key validation failed")
                 return
             
             if not uploaded_file:
                 st.error("Please upload a CSV file")
+                logger.warning("CSV file validation failed")
                 return
             
             # Process the request
             with st.spinner("Generating your executive report..."):
                 try:
+                    logger.info("Starting report generation process")
+                    
                     # Save uploaded file temporarily
                     with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as tmp_file:
                         tmp_file.write(uploaded_file.getvalue().decode('utf-8'))
                         csv_path = tmp_file.name
+                    logger.debug(f"CSV file saved to: {csv_path}")
                     
                     # Initialize components
+                    logger.info("Initializing data processor and report generator")
                     data_processor = DataProcessor()
                     report_generator = ExecutiveReportGenerator(openai_api_key=openai_key)
                     
                     # Process sales data
                     st.info("📊 Processing sales data...")
+                    logger.info("Processing CSV data")
                     sales_data = data_processor.process_csv_data(csv_path)
+                    logger.info(f"Sales data processed successfully. Total sales: {sales_data.total_sales}")
                     
                     # Display sales summary
                     display_sales_summary(sales_data, company_name)
@@ -142,15 +164,16 @@ def main():
                             competitive_landscape=[]
                         )
                     
-                    executive_report = report_generator.generate_executive_report(
+                    executive_report, hallucination_score = report_generator.generate_executive_report(
                         company_name,
                         executive_role,
                         sales_data,
                         industry_research
                     )
                     
+                    
                     # Display executive report
-                    display_executive_report(executive_report, executive_role)
+                    display_executive_report(executive_report, executive_role, hallucination_score)
                     
                     # Clean up temp file
                     os.unlink(csv_path)
@@ -158,6 +181,7 @@ def main():
                     st.success("✅ Executive report generated successfully!")
                     
                 except Exception as e:
+                    logger.error(f"Error generating report: {str(e)}", exc_info=True)
                     st.error(f"Error generating report: {str(e)}")
                     if 'csv_path' in locals():
                         try:
@@ -210,7 +234,7 @@ def display_sales_summary(sales_data, company_name):
     for insight in sales_data.key_insights:
         st.write(f"• {insight}")
 
-def display_executive_report(executive_report, executive_role):
+def display_executive_report(executive_report, executive_role, hallucination_score=None):
     """Display the executive report"""
     
     st.subheader(f"📋 Executive Summary for {executive_role}")
@@ -225,12 +249,23 @@ def display_executive_report(executive_report, executive_role):
     st.subheader("🎯 Strategic Recommendations")
     
     for i, rec in enumerate(executive_report.strategic_recommendations, 1):
-        with st.expander(f"Recommendation {i}: {rec.recommendation[:50]}..."):
-            st.write(f"**Category:** {rec.category}")
-            st.write(f"**Priority:** {rec.priority}")
-            st.write(f"**Timeline:** {rec.timeline}")
-            st.write(f"**Expected Impact:** {rec.expected_impact}")
-            st.write(f"**Details:** {rec.recommendation}")
+        # Color code priority
+        priority_color = {
+            "High": "🔴",
+            "Medium": "🟡", 
+            "Low": "🟢"
+        }.get(rec.priority, "⚪")
+        
+        with st.expander(f"{priority_color} Recommendation {i}: {rec.recommendation[:60]}..."):
+            col1, col2 = st.columns(2)
+            with col1:
+                st.write(f"**Priority:** {rec.priority}")
+                st.write(f"**Timeline:** {rec.timeline}")
+            with col2:
+                st.write(f"**Expected Impact:** {rec.expected_impact}")
+            
+            st.write("**Recommendation Details:**")
+            st.write(rec.recommendation)
     
     # Risk assessment
     if executive_report.risk_assessment:
@@ -242,6 +277,26 @@ def display_executive_report(executive_report, executive_role):
         st.subheader("✅ Next Steps")
         for step in executive_report.next_steps:
             st.write(f"• {step}")
+    
+    # Hallucination score (if available and successfully calculated)
+    if hallucination_score is not None:
+        st.subheader("🎯 Quality Assessment")
+        
+        # Color code the score
+        score = hallucination_score.value
+        if score < 0.3:
+            score_color = "🟢"
+        elif score < 0.7:
+            score_color = "🟡"
+        else:
+            score_color = "🔴"
+
+        score_text = hallucination_score.reason 
+        st.write(f"{score_color} **Hallucination Score:** {score:.3f} - {score_text}")
+        st.caption("Lower scores indicate more reliable content with less hallucination risk.")
+    else:
+        # Optionally show a note that quality assessment wasn't available
+        st.caption("ℹ️ Quality assessment not available for this report.")
 
 if __name__ == "__main__":
     main()

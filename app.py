@@ -63,6 +63,28 @@ def main():
             help="Required for industry research"
         )
         
+        # Embeddings Path
+        embeddings_path = os.getenv("EMBEDDINGS_PATH", "")
+        if embeddings_path:
+            st.subheader("📁 Embeddings Files")
+            
+            # Show files in embeddings directory
+            if os.path.exists(embeddings_path):
+                try:
+                    files = os.listdir(embeddings_path)
+                    if files:
+                        for file in sorted(files):
+                            st.write(f"• {file}")
+                    else:
+                        st.write("• No files found in embeddings directory")
+                except Exception as e:
+                    st.warning(f"Could not list files: {str(e)}")
+            else:
+                st.warning("Embeddings directory does not exist")
+        else:
+            st.subheader("📁 Embeddings Files")
+            st.warning("EMBEDDINGS_PATH environment variable not set")
+        
         # File Upload
         st.subheader("Sales Data")
         uploaded_file = st.file_uploader(

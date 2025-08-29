@@ -36,7 +36,8 @@ def main():
         
         # Company Information
         st.subheader("Company Details")
-        company_name = st.text_input("Company Name", placeholder="e.g., Apple Inc.")
+        company_name = "Apple Inc."
+        st.info(f"🏢 **Company:** {company_name}")
         
         executive_roles = [
             "CEO", "CFO", "COO", "CTO", "CMO", 
@@ -97,11 +98,6 @@ def main():
             logger.debug(f"File uploaded: {uploaded_file is not None}")
             
             # Validate inputs
-            if not company_name:
-                st.error("Please enter a company name")
-                logger.warning("Company name validation failed")
-                return
-            
             if not openai_key:
                 st.error("Please provide OpenAI API key")
                 logger.warning("OpenAI API key validation failed")

@@ -261,9 +261,22 @@ def display_executive_report(executive_report, executive_role, hallucination_sco
         if rec.recommendation and len(rec.recommendation) > 10:
             # Use first part of recommendation as subtitle
             subtitle = rec.recommendation[:50].replace('\n', ' ').strip()
+            
+            # Clean up problematic patterns in the subtitle
+            import re
+            # Remove patterns like "Recommendation 1: Recommendation 2:" or similar
+            subtitle = re.sub(r'^Recommendation\s+\d+:\s*Recommendation\s+\d+:\s*', '', subtitle, flags=re.IGNORECASE)
+            # Remove single "Recommendation" from the beginning
+            subtitle = re.sub(r'^Recommendation\s+\d+:\s*', '', subtitle, flags=re.IGNORECASE)
+            # Remove any remaining "Recommendation" at the start
+            subtitle = re.sub(r'^Recommendation\s*', '', subtitle, flags=re.IGNORECASE)
+            
+            subtitle = subtitle.strip()
+            
             if len(rec.recommendation) > 50:
                 subtitle += "..."
-            title += f": {subtitle}"
+            if subtitle:  # Only add subtitle if it's not empty after cleaning
+                title += f": {subtitle}"
         
         with st.expander(title):
             col1, col2 = st.columns(2)
@@ -298,10 +311,8 @@ def display_executive_report(executive_report, executive_role, hallucination_sco
         score = hallucination_score.value
         if score < 0.3:
             score_color = "🟢"
-            score_text = "Low Hallucination Risk"
         elif score < 0.7:
             score_color = "🟡"
-            score_text = "Medium Hallucination Risk"
         else:
             score_color = "🔴"
 

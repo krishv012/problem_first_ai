@@ -11,6 +11,7 @@ from opik.evaluation.metrics import Hallucination
 
 class ExecutiveRecommendation(BaseModel):
     recommendation: str
+    category: str
     priority: str  # High, Medium, Low
     timeline: str
     expected_impact: str
@@ -153,16 +154,20 @@ KEY FINDINGS:
 
 STRATEGIC RECOMMENDATIONS:
 [Recommendation 1]
+[Provide a detailed recommendation description here - this is the main content]
 Category: [Strategic/Operational/Financial/Marketing]
 Priority: [High/Medium/Low]  
 Timeline: [Immediate/Short-term/Long-term]
 Expected Impact: [Description of expected impact]
 
 [Recommendation 2]
+[Provide a detailed recommendation description here - this is the main content]
 Category: [Strategic/Operational/Financial/Marketing]
 Priority: [High/Medium/Low]  
 Timeline: [Immediate/Short-term/Long-term]
 Expected Impact: [Description of expected impact]
+
+IMPORTANT: Each recommendation must be formatted exactly as shown above. Do NOT combine multiple recommendations into a single block. Each recommendation must have its own bracketed header [Recommendation X] followed by the detailed description, then the Category, Priority, Timeline, and Expected Impact fields.
 
 RISK ASSESSMENT:
 [Risk analysis paragraph]
@@ -242,6 +247,13 @@ Based on this sales data and industry research, provide strategic insights and a
                 elif line.startswith("Expected Impact:"):
                     current_recommendation['expected_impact'] = line.split(":", 1)[1].strip()
                 elif line and not line.startswith(("Category:", "Priority:", "Timeline:", "Expected Impact:")):
+                    # Skip bracketed recommendation headers like [Recommendation 1], [Recommendation 2], etc.
+                    if line.startswith("[Recommendation") and line.endswith("]"):
+                        # Start a new recommendation when we see a bracketed header
+                        if current_recommendation and self._is_recommendation_complete(current_recommendation):
+                            strategic_recommendations.append(ExecutiveRecommendation(**current_recommendation))
+                        current_recommendation = {}
+                        continue
                     # This is recommendation text - append to existing or start new
                     if 'recommendation' in current_recommendation:
                         current_recommendation['recommendation'] += " " + line
@@ -255,6 +267,17 @@ Based on this sales data and industry research, provide strategic insights and a
         # Don't forget the last recommendation
         if current_recommendation and self._is_recommendation_complete(current_recommendation):
             strategic_recommendations.append(ExecutiveRecommendation(**current_recommendation))
+        
+        # Debug: Print information about parsed recommendations
+        print(f"DEBUG: Parsed {len(strategic_recommendations)} recommendations")
+        for i, rec in enumerate(strategic_recommendations, 1):
+            print(f"DEBUG: Recommendation {i}:")
+            print(f"  - Category: {rec.category}")
+            print(f"  - Priority: {rec.priority}")
+            print(f"  - Timeline: {rec.timeline}")
+            print(f"  - Expected Impact: {rec.expected_impact}")
+            print(f"  - Recommendation text: {rec.recommendation[:100]}...")
+            print()
         
         return ExecutiveSummary(
             executive_summary=executive_summary.strip(),

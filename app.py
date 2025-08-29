@@ -244,7 +244,11 @@ def display_executive_report(executive_report, executive_role, hallucination_sco
     # Strategic recommendations
     st.subheader("🎯 Strategic Recommendations")
     
+    # Debug: Show recommendation count
+    logger.debug(f"Number of recommendations: {len(executive_report.strategic_recommendations)}")
+    
     for i, rec in enumerate(executive_report.strategic_recommendations, 1):
+        logger.debug(f"Recommendation {i}: priority={rec.priority}, recommendation_length={len(rec.recommendation) if rec.recommendation else 0}")
         # Color code priority
         priority_color = {
             "High": "🔴",
@@ -252,7 +256,16 @@ def display_executive_report(executive_report, executive_role, hallucination_sco
             "Low": "🟢"
         }.get(rec.priority, "⚪")
         
-        with st.expander(f"{priority_color} Recommendation {i}: {rec.recommendation[:60]}..."):
+        # Create a better title for the expander
+        title = f"{priority_color} Recommendation {i}"
+        if rec.recommendation and len(rec.recommendation) > 10:
+            # Use first part of recommendation as subtitle
+            subtitle = rec.recommendation[:50].replace('\n', ' ').strip()
+            if len(rec.recommendation) > 50:
+                subtitle += "..."
+            title += f": {subtitle}"
+        
+        with st.expander(title):
             col1, col2 = st.columns(2)
             with col1:
                 st.write(f"**Priority:** {rec.priority}")
@@ -261,7 +274,10 @@ def display_executive_report(executive_report, executive_role, hallucination_sco
                 st.write(f"**Expected Impact:** {rec.expected_impact}")
             
             st.write("**Recommendation Details:**")
-            st.write(rec.recommendation)
+            if rec.recommendation:
+                st.write(rec.recommendation)
+            else:
+                st.write("*No recommendation details available*")
     
     # Risk assessment
     if executive_report.risk_assessment:
@@ -282,8 +298,10 @@ def display_executive_report(executive_report, executive_role, hallucination_sco
         score = hallucination_score.value
         if score < 0.3:
             score_color = "🟢"
+            score_text = "Low Hallucination Risk"
         elif score < 0.7:
             score_color = "🟡"
+            score_text = "Medium Hallucination Risk"
         else:
             score_color = "🔴"
 

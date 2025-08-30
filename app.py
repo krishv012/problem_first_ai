@@ -85,13 +85,23 @@ def main():
             st.subheader("📁 Embeddings Files")
             st.warning("EMBEDDINGS_PATH environment variable not set")
         
-        # File Upload
+        # Sales Data Configuration
         st.subheader("Sales Data")
-        uploaded_file = st.file_uploader(
-            "Upload CSV Sales Data",
-            type="csv",
-            help="CSV should contain columns: product, region, sales"
-        )
+        sales_data_path = os.getenv("SALES_DATA_PATH", "")
+        
+        if sales_data_path:
+            # Extract filename from path for display
+            sales_filename = os.path.basename(sales_data_path)
+            st.info(f"📁 **Sales Data File:** {sales_filename}")
+            
+            # Check if file exists
+            if os.path.exists(sales_data_path):
+                st.success("✅ Sales data file found and ready to use")
+            else:
+                st.error(f"❌ Sales data file not found at: {sales_data_path}")
+        else:
+            st.warning("⚠️ SALES_DATA_PATH environment variable not set")
+            st.info("Please set SALES_DATA_PATH in your .env file or environment variables")
         
         # Show sample data format
         if st.checkbox("Show sample data format"):
@@ -118,7 +128,7 @@ def main():
             logger.debug(f"Executive role: {executive_role}")
             logger.debug(f"OpenAI key provided: {bool(openai_key)}")
             logger.debug(f"Tavily key provided: {bool(tavily_key)}")
-            logger.debug(f"File uploaded: {uploaded_file is not None}")
+            logger.debug(f"Sales data path: {sales_data_path}")
             
             # Validate inputs
             if not openai_key:
@@ -126,21 +136,20 @@ def main():
                 logger.warning("OpenAI API key validation failed")
                 return
             
-            if not uploaded_file:
-                st.error("Please upload a CSV file")
-                logger.warning("CSV file validation failed")
+            if not sales_data_path:
+                st.error("Please set SALES_DATA_PATH environment variable")
+                logger.warning("Sales data path validation failed")
+                return
+            
+            if not os.path.exists(sales_data_path):
+                st.error(f"Sales data file not found at: {sales_data_path}")
+                logger.warning("Sales data file not found")
                 return
             
             # Process the request
             with st.spinner("Generating your executive report..."):
                 try:
                     logger.info("Starting report generation process")
-                    
-                    # Save uploaded file temporarily
-                    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as tmp_file:
-                        tmp_file.write(uploaded_file.getvalue().decode('utf-8'))
-                        csv_path = tmp_file.name
-                    logger.debug(f"CSV file saved to: {csv_path}")
                     
                     # Initialize components
                     logger.info("Initializing data processor and report generator")
@@ -149,8 +158,8 @@ def main():
                     
                     # Process sales data
                     st.info("📊 Processing sales data...")
-                    logger.info("Processing CSV data")
-                    sales_data = data_processor.process_csv_data(csv_path)
+                    logger.info(f"Processing CSV data from: {sales_data_path}")
+                    sales_data = data_processor.process_csv_data(sales_data_path)
                     logger.info(f"Sales data processed successfully. Total sales: {sales_data.total_sales}")
                     
                     # Display sales summary
@@ -173,12 +182,14 @@ def main():
                     
                     # RAG Tool
                     try:
-                        st.info("🔍 Researching risk items from internal documents...")
+                        st.info("🔍 Researching risk items from Meeting Minutes...")
                         rag_tool = RAGTool(query="What are the risk items?")
                         rag_tool_docs = rag_tool.retrieve_chunks()
+                        st.success("RAG Tool completed!")
                     except Exception as e:
                         st.warning(f"RAG Tool failed: {str(e)}")
                         rag_tool_docs = []
+                        st.info("RAG Tool failed.")
                     
                     
                     # Generate executive report
@@ -205,19 +216,11 @@ def main():
                     # Display executive report
                     display_executive_report(executive_report, executive_role, hallucination_score)
                     
-                    # Clean up temp file
-                    os.unlink(csv_path)
-                    
                     st.success("✅ Executive report generated successfully!")
                     
                 except Exception as e:
                     logger.error(f"Error generating report: {str(e)}", exc_info=True)
                     st.error(f"Error generating report: {str(e)}")
-                    if 'csv_path' in locals():
-                        try:
-                            os.unlink(csv_path)
-                        except:
-                            pass
 
 def display_sales_summary(sales_data, company_name):
     """Display sales data summary"""
